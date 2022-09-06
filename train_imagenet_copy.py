@@ -288,8 +288,8 @@ def main():
         optimizer = Optimizer(sgd, trainloader, device,local_rank=local_rank,world_size=world_size)
 
         best_acc, epoch_offset =0, 0
-        for (lr,max_epochs) in [(0.1,20),(0.01,20),(0.001,20)]: # train base pre-trained model
-        #for (lr,max_epochs) in [(0.05,10)]:
+        #for (lr,max_epochs) in [(0.1,20),(0.01,20),(0.001,20)]: # train base pre-trained model
+        for (lr,max_epochs) in [(0.05,10)]:
         #for (lr,max_epochs) in [(0.1,20),(0.01,30),(0.001,50)]:
             optimizer.optimizer.param_groups[0]['lr'] = lr
             #print("GPU id",local_rank,"===== Optimize with step size ",lr)
@@ -369,9 +369,9 @@ def main():
     ############test#########################
     (acc,conf) = optimizer.test_acc(net,criterion, testloader)
 
-    best_acc, epoch_offset =0,30    
-    for lr, max_epoch in [(0.001, 15),(0.0005,25),(0.0004,15),(0.0001,15)]:
-    #for lr, max_epoch in [(0.05, 15),(0.01,25),(0.002,25),(0.0004,25)]:
+    best_acc, epoch_offset =0,10    
+    #for lr, max_epoch in [(0.001, 15),(0.0005,25),(0.0004,15),(0.0001,15)]:
+    for lr, max_epoch in [(0.05, 15),(0.01,25),(0.002,25),(0.0004,25)]:
         #h=0.1
         optimizer.optimizer.param_groups[0]['lr'] = lr
         optimizer.optimizer.param_groups[1]['lr'] = lr
