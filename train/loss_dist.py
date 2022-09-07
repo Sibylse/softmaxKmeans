@@ -26,6 +26,7 @@ class BCE_GALoss(nn.Module):
         super(BCE_GALoss, self).__init__()
         self.I = torch.eye(c).to(device)
         self.bce_loss = nn.BCELoss()
+        self.c = c
         #self.mse_loss = nn.MSELoss(reduction='none')
         #self.classifier = classifier.to(device)
         #self.gamma2 = nn.Parameter(torch.ones(c)*0.9)
@@ -35,12 +36,10 @@ class BCE_GALoss(nn.Module):
     def forward(self, inputs, targets,gamma2):        
         Y = self.I[targets]
         try:
-            #distances = -self.classifier(inputs) 
-            distances=-1*inputs
-            loss = self.bce_loss(torch.exp(-1*distances),Y) 
-            #mse_M = self.mse_loss(Y@self.classifier.weight,inputs)
-            #mse_M = torch.diag(Y@self.classifier.gamma) @ mse_M
-            loss+= torch.mean(Y*distances/gamma2)
+            distances=-inputs
+            loss = self.bce_loss(torch.exp(-distances),Y) 
+            #loss+= torch.mean(Y*distances/gamma2)/self.c #to adapt to the mean computation of bce_loss, dividing by c and m
+            loss+= torch.mean((2/gamma2-1)*Y*distances)/self.c # positive prediction weight is 2gamma
         except RuntimeError as e:
             print("min,max D",torch.min(inputs).item(), torch.max(inputs).item())
             print("min,max output",torch.min(torch.exp(inputs)).item(), torch.max(torch.exp(inputs)).item())
