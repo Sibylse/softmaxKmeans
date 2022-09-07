@@ -35,6 +35,9 @@ def add_parser_arguments(parser):
     parser.add_argument('--gamma', default=0.5, type=float, metavar='M',help='momentum')
     parser.add_argument('--seed', default=17, type=int,help='seed')
     parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,metavar='W', help='weight decay (default: 1e-4)')
+    parser.add_argument('--lr_multiplier', default=1, type=float, help='multiplier of default step size setting')
+    parser.add_argument('--weight_decay_gamma', default=-1e-5, type=float, help='weight decay of gamma')
+    parser.add_argument('--weight_decay_gamma2', default=1e-5, type=float, help='weight decay of gamma2')
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -362,8 +365,8 @@ def main():
     sgd = optim.SGD([
                     {'params': net.module.embed.parameters()},
                     {'params': net.module.classifier.weight, 'weight_decay': 0},
-                    {'params': net.module.classifier.gamma, 'weight_decay': -1e-10},
-                    {'params': net.module.classifier.gamma2, 'weight_decay': 1e-10}],
+                    {'params': net.module.classifier.gamma, 'weight_decay': args.weight_decay_gamma},
+                    {'params': net.module.classifier.gamma2, 'weight_decay': args.weight_decay_gamma2}],
                     lr=0.1, momentum=0.9, weight_decay=5e-4)
     optimizer = Optimizer(sgd, trainloader, device,local_rank=local_rank,world_size=world_size)
     ############test#########################
@@ -372,7 +375,7 @@ def main():
     best_acc, epoch_offset =0,10    
     #for lr, max_epoch in [(0.001, 15),(0.0005,25),(0.0004,15),(0.0001,15)]:
     for lr, max_epoch in [(0.05, 15),(0.01,25),(0.002,25),(0.0004,25)]:
-        #h=0.1
+        lr = lr * args.lr_multiplier
         optimizer.optimizer.param_groups[0]['lr'] = lr
         optimizer.optimizer.param_groups[1]['lr'] = lr
         optimizer.optimizer.param_groups[2]['lr'] = lr
