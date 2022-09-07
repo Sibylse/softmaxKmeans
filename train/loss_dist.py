@@ -1,6 +1,7 @@
 from turtle import distance
 import torch.nn as nn
 import torch
+import numpy as np
 
 class CE_Loss(nn.Module):
     def __init__(self, c, device):
@@ -26,7 +27,7 @@ class BCE_GALoss(nn.Module):
         super(BCE_GALoss, self).__init__()
         self.I = torch.eye(c).to(device)
         self.bce_loss = nn.BCELoss()
-        self.c = c
+        self.const = np.log(c)
         #self.mse_loss = nn.MSELoss(reduction='none')
         #self.classifier = classifier.to(device)
         #self.gamma2 = nn.Parameter(torch.ones(c)*0.9)
@@ -39,7 +40,7 @@ class BCE_GALoss(nn.Module):
             distances=-inputs
             loss = self.bce_loss(torch.exp(-distances),Y) 
             #loss+= torch.mean(Y*distances/gamma2)/self.c #to adapt to the mean computation of bce_loss, dividing by c and m
-            loss+= torch.mean((2/gamma2-1)*Y*distances) # positive prediction weight is gamma
+            loss+= torch.mean((self.const/gamma2-1)*Y*distances) # positive prediction weight is gamma * const
         except RuntimeError as e:
             print("min,max D",torch.min(inputs).item(), torch.max(inputs).item())
             print("min,max output",torch.min(torch.exp(inputs)).item(), torch.max(torch.exp(inputs)).item())
