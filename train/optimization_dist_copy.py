@@ -130,6 +130,28 @@ class Optimizer:
     if dist.get_rank()==0:
       print('Test | GPU id:%.1f | Loss: %.3f (%d) | Acc: %.3f%% (%d/%d) | Conf %.2f'% (self.local_rank,test_loss/n,n, 100.*correct/total, correct, total, 100*conf/total))
     return (100.*correct/total, 100*conf/total)
+
+  def test_minconf(self, net, criterion, data_loader, min_conf=0):
+    net.eval()
+    test_loss, correct, conf, total = 0,0,0,0
+    n=0.0
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(data_loader):
+            n+=1
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
+            outputs,pred = net(inputs)
+            loss = criterion(pred, targets,net.module.classifier.gamma2)
+
+            test_loss += loss.item()
+            confBatch, predicted = net.module.classifier.conf(outputs).max(1)
+            idx = (confBatch.detach()>min_conf)
+
+            correct += predicted[idx].eq(targets[idx]).sum().float().item()
+            conf+=confBatch[idx].sum().item()
+            total+= idx.sum()
+    if dist.get_rank()==0:
+      print('Test | Loss: %.3f (%d) | Acc: %.3f%% (%d/%d) | Conf %.2f'% (test_loss/n,n, 100.*correct/total, correct, total, 100*conf/total))
+    return (100.*correct/total, 100*conf/total)
   
   def test_grad_penalty(self, net, criterion, data_loader, gp_embed):
     net.eval()
