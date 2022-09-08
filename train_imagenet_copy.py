@@ -26,11 +26,12 @@ import random
 def add_parser_arguments(parser):
     parser.add_argument('--datadir', default='/projects/2/managed_datasets/imagenet/',help='path to dataset')
     parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18',choices=['resnet18','resnet50'])
+    parser.add_argument('--classifier', default='gauss',choices=['gauss','linear'])
     parser.add_argument('--dataset', default='cifar10', type=str,choices=['imagenet','cifar10','cifar100'])
     parser.add_argument('--epochs', default=90, type=int, metavar='N',help='number of total epochs to run')    
     parser.add_argument('-b', '--batch-size', default=128, type=int,metavar='N', help='mini-batch size (default: 256)')                    
     parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,metavar='LR', help='initial learning rate')
-    parser.add_argument('--warmup', default=10, type=int,metavar='E', help='number of warmup epochs')
+    parser.add_argument('--warmup_epochs', default=10, type=int,metavar='E', help='number of warmup epochs, should be larger or equal to zero')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',help='momentum')
     parser.add_argument('--gamma', default=0.5, type=float, metavar='M',help='momentum')
     parser.add_argument('--seed', default=17, type=int,help='seed')
@@ -242,108 +243,74 @@ def main():
         testloader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, prefetch_factor=2,shuffle=False,num_workers=36, pin_memory=True, sampler=testsampler)    
         # trainloader = get_train_loader(args.datadir, args.batch_size, workers=30, _worker_init_fn=_worker_init_fn)  
         # testloader = get_val_loader(args.datadir, args.batch_size, workers=30, _worker_init_fn=_worker_init_fn)  
-    ###Building model############
-    if args.arch=='resnet18':
-        d=512
-        #classifier=nn.Linear(d, c, bias=True)
-        classifier=Gauss(in_features = d, out_features = c, gamma=0.5)
-        net = resnet_cifar.ResNet18(classifier)   
-    elif args.arch=='resnet50':
-        d=2048
-        #classifier=Linear(d, c, bias=True)
-        classifier=Gauss(in_features = d, out_features = c, gamma=0.5)
-        net = resnet_cifar.ResNet50(classifier)
-    else:
-        print("Not defined arch!")
-        assert False
-    #net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
-    criterion = BCE_GALoss(c, device)
-    print('./checkpoint/%s%s%s_base.t7'%(name,net.__class__.__name__,net.classifier.__class__.__name__),flush=True)
-    if args.warmup>0 and os.path.exists('./checkpoint/%s%s%s_base.t7'%(name,net.__class__.__name__,net.classifier.__class__.__name__)):
-        
-        net=load_net('./checkpoint/%s%s%s_base.t7'%(name,net.__class__.__name__,net.classifier.__class__.__name__),net)
-        net=net.to(device)
-        #net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
-        #net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
-        net=torch.nn.parallel.DistributedDataParallel(net, device_ids=[local_rank])
-
-        # criterion = CE_Loss(c, device)
-        # criterion=criterion.to(device)
-        # sgd = optim.SGD([{'params': net.parameters()},],lr=0.1, momentum=0.9, weight_decay=5e-4)
-        # optimizer = Optimizer(sgd, trainloader, device,local_rank=local_rank,world_size=world_size)
 
 
-
-    elif args.warmup>0 and ~os.path.exists('./checkpoint/%s%s%s_base.t7'%(name,net.__class__.__name__,net.classifier.__class__.__name__)):  
+    if args.classifier=="linear" or (args.warmup_epochs>0 and ~os.path.exists('./checkpoint/%s%s%s_base.t7'%(name,net.__class__.__name__,net.classifier.__class__.__name__))):  
         if args.arch=='resnet18':
+            d=512
             classifier=Linear(d, c, bias=True)
             net = resnet_cifar.ResNet18(classifier).to(device)   
         elif args.arch=='resnet50':
+            d=2048
             classifier=Linear(d, c, bias=True)
             net = resnet_cifar.ResNet50(classifier).to(device)
-        ####Warmup using CE LOSS################
-        #net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
+        #### Linear net with CE LOSS################
+        print("Train Softmax DNN")
         net=torch.nn.parallel.DistributedDataParallel(net, device_ids=[local_rank])
         criterion = CE_Loss(c, device)
         criterion=criterion.to(device)
 
         sgd = optim.SGD([{'params': net.parameters()},],lr=0.1, momentum=0.9, weight_decay=5e-4)
         optimizer = Optimizer(sgd, trainloader, device,local_rank=local_rank,world_size=world_size)
-
+        
+        max_total_epochs = (args.classifier=="linear")*200 + (args.classifier=="gauss")*args.warmup_epochs
         best_acc, epoch_offset =0, 0
-        #for (lr,max_epochs) in [(0.1,20),(0.01,20),(0.001,20)]: # train base pre-trained model
-        for (lr,max_epochs) in [(0.05,10)]:
-        #for (lr,max_epochs) in [(0.1,20),(0.01,30),(0.001,50)]:
+        for (lr,max_epochs) in [(0.1,60),(0.01,20),(0.001,20)]:
             optimizer.optimizer.param_groups[0]['lr'] = lr
             #print("GPU id",local_rank,"===== Optimize with step size ",lr)
-            for epoch in range(epoch_offset, epoch_offset+ max_epochs):
+            for epoch in range(epoch_offset, min(epoch_offset+max_epochs, max_total_epochs)):
                 if dist.get_rank()==0:
                     print('\nEpoch: %d' % epoch)
                 trainsampler.set_epoch(epoch)
-                #trainloader.sampler.set_epoch(epoch)
-                #testsampler.set_epoch(epoch)
                 optimizer.train_epoch(net, criterion)
                 (acc,conf) = optimizer.test_acc(net,criterion, testloader)
-                if acc > .99*best_acc:
-                    if dist.get_rank()==0:
-                        print('Saving..')
-                        state = {
-                            'net': net.module.state_dict(),
-                            'acc': acc
-                        }
-                        if not os.path.isdir('checkpoint'):
-                            os.mkdir('checkpoint')
-                        #torch.save(state, './checkpoint/%s%s%s_baselinear.t7'%(name,net.module.__class__.__name__,net.module.classifier.__class__.__name__))
-                        best_acc = acc
-            epoch_offset +=max_epochs
-        #####################Calculate the centroids#################################
-        #(acc,conf) = optimizer.test_acc(net,criterion, testloader)
-        classifier = Gauss(in_features = d, out_features = c, gamma=0.5).to(device)
-        #classifier = torch.nn.SyncBatchNorm.convert_sync_batchnorm(classifier)
-        net.module.classifier = classifier
-        #net = net.to(device)
-        criterion = BCE_GALoss( c, device)
-        criterion=criterion.to(device)         
-        (acc,conf) = optimizer.test_acc(net,criterion, testloader)
-        optimizer.optimize_centroids(net)       
-        (acc,conf) = optimizer.test_acc(net,criterion, testloader)
+            epoch_offset +=max_epochs            
+        if (dist.get_rank()==0) and (args.classifier=="linear"):
+            print('Saving..')
+            state = {
+                'net': net.module.state_dict(),
+                'acc': acc
+            }
+            if not os.path.isdir('checkpoint'):
+                os.mkdir('checkpoint')
+            torch.save(state, './checkpoint/%s%s%sLinear.t7'%(name,net.module.__class__.__name__,net.module.classifier.__class__.__name__))
             
-        state = {
-            'net': net.module.state_dict(),
-            'acc': acc
-        }
-        if not os.path.isdir('checkpoint'):
-            os.mkdir('checkpoint')
-        torch.save(state, './checkpoint/%s%s%s_base.t7'%(name,net.module.__class__.__name__,net.module.classifier.__class__.__name__))
-        #############reintialize model
+        if args.classifier=="gauss":
+            #####################Calculate the centroids#################################
+            #(acc,conf) = optimizer.test_acc(net,criterion, testloader)
+            classifier = Gauss(in_features = d, out_features = c, gamma=0.5).to(device)
+            net.module.classifier = classifier
+            criterion = BCE_GALoss( c, device)
+            criterion=criterion.to(device)         
+            (acc,conf) = optimizer.test_acc(net,criterion, testloader)
+            optimizer.optimize_centroids(net)       
+            (acc,conf) = optimizer.test_acc(net,criterion, testloader)
+
+            state = {
+                'net': net.module.state_dict(),
+                'acc': acc
+            }
+            if not os.path.isdir('checkpoint'):
+                os.mkdir('checkpoint')
+            torch.save(state, './checkpoint/%s%s%s_base.t7'%(name,net.module.__class__.__name__,net.module.classifier.__class__.__name__))
+    if args.classifier=="gauss":    
+        #############initialize model
         if args.arch=='resnet18':
             d=512
-            #classifier=nn.Linear(d, c, bias=True)
             classifier=Gauss(in_features = d, out_features = c, gamma=0.5)
             net = resnet_cifar.ResNet18(classifier)   
         elif args.arch=='resnet50':
             d=2048
-            #classifier=nn.Linear(d, c, bias=True)
             classifier=Gauss(in_features = d, out_features = c, gamma=0.5)
             net = resnet_cifar.ResNet50(classifier)
         else:
@@ -351,72 +318,62 @@ def main():
             assert False
         net=load_net('./checkpoint/%s%s%s_base.t7'%(name,net.__class__.__name__,net.classifier.__class__.__name__),net)
         net=net.to(device)
-        #net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
         net=torch.nn.parallel.DistributedDataParallel(net, device_ids=[local_rank])
 
-    ######Training for Gaussian Net####################
+        ######Training for Gaussian Net####################
+        weight_gp_embed=0
+        criterion = BCE_GALoss( c, device)
+        criterion=criterion.to(device)
 
-    
+        sgd = optim.SGD([
+                        {'params': net.module.embed.parameters()},
+                        {'params': net.module.classifier.weight, 'weight_decay': 0},
+                        {'params': net.module.classifier.gamma, 'weight_decay': args.weight_decay_gamma},
+                        {'params': net.module.classifier.gamma2, 'weight_decay': args.weight_decay_gamma2}],
+                        lr=0.1, momentum=0.9, weight_decay=5e-4)
+        optimizer = Optimizer(sgd, trainloader, device,local_rank=local_rank,world_size=world_size)
+        ############test#########################
+        (acc,conf) = optimizer.test_acc(net,criterion, testloader)
 
-    weight_gp_embed=0
-    criterion = BCE_GALoss( c, device)
-    criterion=criterion.to(device)
-
-    sgd = optim.SGD([
-                    {'params': net.module.embed.parameters()},
-                    {'params': net.module.classifier.weight, 'weight_decay': 0},
-                    {'params': net.module.classifier.gamma, 'weight_decay': args.weight_decay_gamma},
-                    {'params': net.module.classifier.gamma2, 'weight_decay': args.weight_decay_gamma2}],
-                    lr=0.1, momentum=0.9, weight_decay=5e-4)
-    optimizer = Optimizer(sgd, trainloader, device,local_rank=local_rank,world_size=world_size)
-    ############test#########################
-    (acc,conf) = optimizer.test_acc(net,criterion, testloader)
-
-    best_acc, epoch_offset =0,10    
-    #for lr, max_epoch in [(0.001, 15),(0.0005,25),(0.0004,15),(0.0001,15)]:
-    for lr, max_epoch in [(0.05, 15),(0.01,25),(0.002,25),(0.0004,25)]:
-        lr = lr * args.lr_multiplier
-        optimizer.optimizer.param_groups[0]['lr'] = lr
-        optimizer.optimizer.param_groups[1]['lr'] = lr
-        optimizer.optimizer.param_groups[2]['lr'] = lr
-        optimizer.optimizer.param_groups[3]['lr'] = lr
-        if dist.get_rank()==0:
-            print("Optimize with step size ",lr)
-        for epoch in range(epoch_offset,epoch_offset+ max_epoch):            
-            #if torch.distributed.is_initialized():
-            #trainloader.sampler.set_epoch(epoch)
-            #testsampler.set_epoch(epoch)
-            trainsampler.set_epoch(epoch)
+        epoch_offset = 0   
+        for lr, max_epoch in [(0.05, 25),(0.01,25),(0.002,25),(0.0004,25)]:
+            lr = lr * args.lr_multiplier
+            optimizer.optimizer.param_groups[0]['lr'] = lr
+            optimizer.optimizer.param_groups[1]['lr'] = lr
+            optimizer.optimizer.param_groups[2]['lr'] = lr
+            optimizer.optimizer.param_groups[3]['lr'] = lr
             if dist.get_rank()==0:
-                print('\nEpoch: %d' % epoch)
-            optimizer.train_epoch(net, criterion, weight_gp_embed=weight_gp_embed, verbose=False)
-            (acc,conf) = optimizer.test_acc(net,criterion, testloader)
-            if dist.get_rank()==0:
-                print("gamma", net.module.classifier.gamma)
-                print("gamma2", net.module.classifier.gamma2)
-            if acc > .99*best_acc:
+                print("Optimize with step size ",lr)
+            for epoch in range(max(epoch_offset, args.warmup_epochs),epoch_offset+ max_epoch):            
+                trainsampler.set_epoch(epoch)
                 if dist.get_rank()==0:
-                    print('Saving..')
-                    state = {
-                        'net': net.module.state_dict(),
-                        'acc': acc
-                    }
-                    if not os.path.isdir('checkpoint'):
-                        os.mkdir('checkpoint')
-                    torch.save(state, './checkpoint/%s%s%s.t7'%(name,net.module.__class__.__name__,net.module.classifier.__class__.__name__))
-                    best_acc = acc
-                
-            if epoch%5==0:
-                with torch.no_grad():
-                    X = net.module.classifier.weight.data.t()
-                    margins = torch.sqrt(net.module.classifier.get_margins())
-                    gamma = net.module.classifier.gamma
-                    if dist.get_rank()==0:
+                    print('\nEpoch: %d' % epoch)
+                optimizer.train_epoch(net, criterion, weight_gp_embed=weight_gp_embed, verbose=False)
+                (acc,conf) = optimizer.test_acc(net,criterion, testloader)
+                if dist.get_rank()==0:
+                    print("gamma", net.module.classifier.gamma)
+                    print("gamma2", net.module.classifier.gamma2)
+              
+
+                if (epoch%5==0) and (dist.get_rank()==0):
+                    with torch.no_grad():
+                        X = net.module.classifier.weight.data.t()
+                        margins = torch.sqrt(net.module.classifier.get_margins())
+                        gamma = net.module.classifier.gamma
                         print('||X||^2: %.1f +- %.3f'% (torch.mean(torch.sum(X**2,0)), torch.std(torch.sum(X**2,0))))
                         print('Min margin: %.2f, mean margin: %.2f +- %.3f'% (torch.min(margins), torch.mean(margins), torch.std(margins)))
                         print('gamma: %.2f +- %.3f'% (torch.mean(gamma), torch.std(gamma)))
-                    
-        epoch_offset +=max_epoch
+
+            epoch_offset +=max_epoch
+        if dist.get_rank()==0:
+            print('Saving..')
+            state = {
+                'net': net.module.state_dict(),
+                'acc': acc
+            }
+            if not os.path.isdir('checkpoint'):
+                os.mkdir('checkpoint')
+            torch.save(state, './checkpoint/%s%s%s.t7'%(name,net.module.__class__.__name__,net.module.classifier.__class__.__name__))
     
 if __name__=='__main__':
     main()
