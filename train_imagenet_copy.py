@@ -245,8 +245,8 @@ def main():
         # testloader = get_val_loader(args.datadir, args.batch_size, workers=30, _worker_init_fn=_worker_init_fn)  
 
     print('does ./checkpoint/%sResNetGauss_base.t7 exist? '%(name), os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name)))
-    print('args.warmup_epochs>0 & ~os.path.exists(./checkpoint/%sResNetGauss_base.t7?'%(name),args.warmup_epochs>0 & ~os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name)))
-    if args.classifier=="linear" or (args.warmup_epochs>0 & ~os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name))):  
+    print('args.warmup_epochs>0 and not os.path.exists(./checkpoint/%sResNetGauss_base.t7?'%(name),args.warmup_epochs>0 and not ~os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name)))
+    if args.classifier=="linear" or (args.warmup_epochs>0 and not os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name))):  
         if args.arch=='resnet18':
             d=512
             classifier=Linear(d, c, bias=True)
