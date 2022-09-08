@@ -337,7 +337,8 @@ def main():
         (acc,conf) = optimizer.test_acc(net,criterion, testloader)
 
         epoch_offset = 0   
-        for lr, max_epoch in [(0.05, 25),(0.01,25),(0.002,25),(0.0004,25)]:
+        #for lr, max_epoch in [(0.05, 25),(0.01,25),(0.002,25),(0.0004,25)]:
+        for lr, max_epoch in [(0.1, 60),(0.01,20),(0.001,20)]:
             lr = lr * args.lr_multiplier
             optimizer.optimizer.param_groups[0]['lr'] = lr
             optimizer.optimizer.param_groups[1]['lr'] = lr
