@@ -245,7 +245,7 @@ def main():
         # testloader = get_val_loader(args.datadir, args.batch_size, workers=30, _worker_init_fn=_worker_init_fn)  
 
 
-    if args.classifier=="linear" or (args.warmup_epochs>0 and ~os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name))):  
+    if args.classifier=="linear" or (args.warmup_epochs>0 & ~os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name))):  
         if args.arch=='resnet18':
             d=512
             classifier=Linear(d, c, bias=True)
@@ -283,7 +283,7 @@ def main():
             }
             if not os.path.isdir('checkpoint'):
                 os.mkdir('checkpoint')
-            torch.save(state, './checkpoint/%s%s%sLinear.t7'%(name,net.module.__class__.__name__,net.module.classifier.__class__.__name__))
+            torch.save(state, './checkpoint/%s%s%s.t7'%(name,net.module.__class__.__name__,net.module.classifier.__class__.__name__))
             
         if args.classifier=="gauss":
             #####################Calculate the centroids#################################
