@@ -245,7 +245,7 @@ def main():
         # testloader = get_val_loader(args.datadir, args.batch_size, workers=30, _worker_init_fn=_worker_init_fn)  
 
 
-    if args.classifier=="linear" or (args.warmup_epochs>0 and ~os.path.exists('./checkpoint/%s%s%s_base.t7'%(name,net.__class__.__name__,net.classifier.__class__.__name__))):  
+    if args.classifier=="linear" or (args.warmup_epochs>0 and ~os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name,net.__class__.__name__,net.classifier.__class__.__name__))):  
         if args.arch=='resnet18':
             d=512
             classifier=Linear(d, c, bias=True)
