@@ -265,8 +265,7 @@ def main():
         
         max_total_epochs = (args.classifier=="linear")*200 + (args.classifier=="gauss")*args.warmup_epochs
         best_acc, epoch_offset =0, 0
-        #for (lr,max_epochs) in [(0.1,60),(0.01,20),(0.001,20)]:
-        for (lr,max_epochs) in [(0.05,60),(0.01,20),(0.001,20)]:
+        for (lr,max_epochs) in [(0.1,60),(0.01,20),(0.001,20)]:
             optimizer.optimizer.param_groups[0]['lr'] = lr
             #print("GPU id",local_rank,"===== Optimize with step size ",lr)
             for epoch in range(epoch_offset, min(epoch_offset+max_epochs, max_total_epochs)):
@@ -338,7 +337,8 @@ def main():
 
         epoch_offset = 0   
         #for lr, max_epoch in [(0.05, 40),(0.01,30),(0.002,20),(0.0004,10)]:
-        for lr, max_epoch in [(0.1, 60),(0.01,20),(0.001,20)]:
+        #for lr, max_epoch in [(0.1, 60),(0.01,20),(0.001,20)]:
+        for (lr,max_epochs) in [(0.05,60),(0.01,20),(0.001,20)]:
             lr = lr * args.lr_multiplier
             optimizer.optimizer.param_groups[0]['lr'] = lr
             optimizer.optimizer.param_groups[1]['lr'] = lr
