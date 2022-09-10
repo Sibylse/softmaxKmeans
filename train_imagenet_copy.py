@@ -39,6 +39,7 @@ def add_parser_arguments(parser):
     parser.add_argument('--lr_multiplier', default=1, type=float, help='multiplier of default step size setting')
     parser.add_argument('--weight_decay_gamma', default=-1e-5, type=float, help='weight decay of gamma')
     parser.add_argument('--weight_decay_gamma2', default=1e-5, type=float, help='weight decay of gamma2')
+    parser.add_argument('--gamma_min', default=0.1, type=float, help='minimum value of gamma2')
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -244,8 +245,6 @@ def main():
         # trainloader = get_train_loader(args.datadir, args.batch_size, workers=30, _worker_init_fn=_worker_init_fn)  
         # testloader = get_val_loader(args.datadir, args.batch_size, workers=30, _worker_init_fn=_worker_init_fn)  
 
-    print('does ./checkpoint/%sResNetGauss_base.t7 exist? '%(name), os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name)))
-    print('args.warmup_epochs>0 and not os.path.exists(./checkpoint/%sResNetGauss_base.t7?'%(name),args.warmup_epochs>0 and not ~os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name)))
     if args.classifier=="linear" or (args.warmup_epochs>0 and not os.path.exists('./checkpoint/%sResNetGauss_base.t7'%(name))):  
         if args.arch=='resnet18':
             d=512
@@ -308,11 +307,11 @@ def main():
         #############initialize model
         if args.arch=='resnet18':
             d=512
-            classifier=Gauss(in_features = d, out_features = c, gamma=0.5)
+            classifier=Gauss(in_features = d, out_features = c, gamma=0.5,gamma_min=args.gamma_min)
             net = resnet_cifar.ResNet18(classifier)   
         elif args.arch=='resnet50':
             d=2048
-            classifier=Gauss(in_features = d, out_features = c, gamma=0.5)
+            classifier=Gauss(in_features = d, out_features = c, gamma=0.5,gamma_min=args.gamma_min)
             net = resnet_cifar.ResNet50(classifier)
         else:
             print("Not defined arch!")
@@ -337,8 +336,8 @@ def main():
         (acc,conf) = optimizer.test_acc(net,criterion, testloader)
 
         epoch_offset = 0   
-        for lr, max_epoch in [(0.05, 40),(0.01,30),(0.002,20),(0.0004,10)]:
-        #for lr, max_epoch in [(0.1, 60),(0.01,20),(0.001,20)]:
+        #for lr, max_epoch in [(0.05, 40),(0.01,30),(0.002,20),(0.0004,10)]:
+        for lr, max_epoch in [(0.1, 60),(0.01,20),(0.001,20)]:
             lr = lr * args.lr_multiplier
             optimizer.optimizer.param_groups[0]['lr'] = lr
             optimizer.optimizer.param_groups[1]['lr'] = lr
