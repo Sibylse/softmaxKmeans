@@ -27,7 +27,8 @@ class BCE_GALoss(nn.Module):
         super(BCE_GALoss, self).__init__()
         self.I = torch.eye(c).to(device)
         self.bce_loss = nn.BCELoss()
-        self.const = np.sqrt(c)
+        #self.const = np.sqrt(c)
+        self.const = (c-1)/2
         #self.mse_loss = nn.MSELoss(reduction='none')
         #self.classifier = classifier.to(device)
         #self.gamma2 = nn.Parameter(torch.ones(c)*0.9)
