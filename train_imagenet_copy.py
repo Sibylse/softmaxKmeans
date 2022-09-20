@@ -290,7 +290,8 @@ def main():
             #(acc,conf) = optimizer.test_acc(net,criterion, testloader)
             classifier = Gauss(in_features = d, out_features = c, gamma=0.5).to(device)
             net.module.classifier = classifier
-            criterion = BCE_GALoss( c, device)
+            #criterion = BCE_GALoss( c, device)
+            criterion = CE_GALoss( c, device)
             criterion=criterion.to(device)         
             (acc,conf) = optimizer.test_acc(net,criterion, testloader)
             optimizer.optimize_centroids(net)       
@@ -322,7 +323,8 @@ def main():
 
         ######Training for Gaussian Net####################
         weight_gp_embed=0
-        criterion = BCE_GALoss( c, device)
+        #criterion = BCE_GALoss( c, device)
+        criterion = CE_GALoss( c, device)
         criterion=criterion.to(device)
 
         sgd = optim.SGD([
