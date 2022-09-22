@@ -18,6 +18,29 @@ class CE_Loss(nn.Module):
     
     def prox(self):
         return
+    
+class CE_GALoss(nn.Module):
+    def __init__(self, classifier, c, device, gamma2_min = 0.001, gamma2_max = 0.9):
+        super(CE_GALoss, self).__init__()
+        self.ce_loss = nn.CrossEntropyLoss()
+        self.nll_loss = nn.NLLLoss()
+        self.classifier = classifier.to(device)
+        self.gamma2 = nn.Parameter(torch.ones(c)*0.9)
+        self.gamma2_min = gamma2_min
+        self.gamma2_max = gamma2_max
+ 
+    def forward(self, inputs, targets):   
+        loss = self.ce_loss(inputs,targets) 
+        #loss+= torch.mean((self.const/self.gamma2-1)*Y*distances) # positive prediction weight is gamma * const
+        loss+= self.nll_loss((1/self.gamma2-1)*inputs,targets)
+        return 
+    
+    def conf(self,inputs):
+        return self.classifier.conf(inputs)
+    
+    def prox(self):
+        torch.clamp_(self.gamma2, self.gamma2_min, self.gamma2_max)
+        self.classifier.prox()
 
 class BCE_GALoss(nn.Module):
     def __init__(self, classifier, c, device, gamma2_min = 0.001, gamma2_max = 0.9):
