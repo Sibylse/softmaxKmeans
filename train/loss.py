@@ -35,7 +35,7 @@ class CE_GALoss(nn.Module):
         loss = self.ce_loss(self.logits,targets) 
         #loss+= torch.mean((self.const/self.gamma2-1)*Y*distances) # positive prediction weight is gamma * const
         loss+= self.nll_loss((1/self.gamma2-1)*self.logits,targets)
-        return 
+        return loss
     
     def conf(self,inputs):
         return self.classifier.conf(inputs)
