@@ -28,11 +28,13 @@ class CE_GALoss(nn.Module):
         self.gamma2 = nn.Parameter(torch.ones(c)*0.9)
         self.gamma2_min = gamma2_min
         self.gamma2_max = gamma2_max
+        self.logits = 0
  
     def forward(self, inputs, targets):   
-        loss = self.ce_loss(inputs,targets) 
+        self.logits = self.classifier(inputs) # prediction before exp, -distances
+        loss = self.ce_loss(self.logits,targets) 
         #loss+= torch.mean((self.const/self.gamma2-1)*Y*distances) # positive prediction weight is gamma * const
-        loss+= self.nll_loss((1/self.gamma2-1)*inputs,targets)
+        loss+= self.nll_loss((1/self.gamma2-1)*self.logits,targets)
         return 
     
     def conf(self,inputs):
