@@ -22,7 +22,7 @@ class CE_Loss(nn.Module):
     def prox(self):
         return
     
-class CE_GALoss(nn.Module):
+class CE_GALoss_old(nn.Module):
     def __init__(self, c, device):
         super(CE_GALoss, self).__init__()
         self.ce_loss = nn.CrossEntropyLoss()
@@ -30,8 +30,20 @@ class CE_GALoss(nn.Module):
  
     def forward(self, inputs, targets, gamma2):   
         loss = self.ce_loss(inputs,targets) 
-        #loss+= torch.mean((self.const/gamma2-1)*Y*distances) # positive prediction weight is gamma * const
         loss+= self.nll_loss((1/gamma2-1)*inputs,targets)
+        return loss
+    
+class CE_GALoss(nn.Module):
+    def __init__(self, c, device):
+        super(BCE_GALoss, self).__init__()
+        self.I = torch.eye(c).to(device)
+        self.ce_loss = nn.CrossEntropyLoss()
+        self.nll_loss = nn.NLLLoss()
+ 
+    def forward(self, inputs, targets, gamma2):        
+        Y = self.I[targets]
+        loss = self.ce_loss(1/gamma2*Y*inputs + (1-Y)*inputs,targets) 
+        loss+= self.nll_loss(inputs,targets)
         return loss
 
 class BCE_GALoss(nn.Module):
