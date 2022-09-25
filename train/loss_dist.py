@@ -24,7 +24,7 @@ class CE_Loss(nn.Module):
     
 class CE_GALoss_old(nn.Module):
     def __init__(self, c, device):
-        super(CE_GALoss, self).__init__()
+        super(CE_GALoss_old, self).__init__()
         self.ce_loss = nn.CrossEntropyLoss()
         self.nll_loss = nn.NLLLoss()
  
@@ -35,7 +35,7 @@ class CE_GALoss_old(nn.Module):
     
 class CE_GALoss(nn.Module):
     def __init__(self, c, device):
-        super(BCE_GALoss, self).__init__()
+        super(CE_GALoss, self).__init__()
         self.I = torch.eye(c).to(device)
         self.ce_loss = nn.CrossEntropyLoss()
         self.nll_loss = nn.NLLLoss()
