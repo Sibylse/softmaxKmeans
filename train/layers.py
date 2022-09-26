@@ -7,7 +7,7 @@ import math
 class Gauss(nn.Module):
     __constants__ = ['in_features', 'out_features']
 
-    def __init__(self,in_features,out_features, gamma, gamma_min=0.1,gamma_max=1000):
+    def __init__(self,in_features,out_features, gamma, gamma_min=0.05,gamma_max=1000):
         super(Gauss, self).__init__()
 
         self.in_features = in_features
