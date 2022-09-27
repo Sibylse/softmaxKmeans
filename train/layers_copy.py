@@ -17,8 +17,6 @@ class Gauss(nn.Module):
 
         self.weight = nn.Parameter(torch.Tensor(out_features, in_features)) # (cxd)
         
-        #self.weight.requires_grad=False
-        #nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
         nn.init.uniform_(self.weight,a=5/(gamma**2),b=50/(gamma**2))
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max
@@ -32,7 +30,6 @@ class Gauss(nn.Module):
         #out = out + torch.sum(self.weight.t()**2,0).unsqueeze(0).expand_as(DX)
         out = D.unsqueeze(2) - self.weight.t().unsqueeze(0) #D is mxd, weight.t() (centroids) is dxc 
         return -self.gamma*torch.sum((out**2),1) # (mxc)
-        #return -F.relu(self.gamma*out)
     
     def conf(self,D):
         return torch.exp(self.forward(D))
@@ -52,6 +49,7 @@ class Gauss(nn.Module):
         out = out - torch.sum(X**2,0).unsqueeze(0).expand_as(XX)
         triu_idx = torch.triu_indices(out.shape[0], out.shape[0],1)
         return -out[triu_idx[0],triu_idx[1]]
+    
 class Linear(nn.Module):
     __constants__ = ['in_features', 'out_features']
 
@@ -66,6 +64,7 @@ class Linear(nn.Module):
     
     def conf(self,out):
         return self.softmax(self.forward(out))
+    
     def prox(self):
         return 
 
@@ -141,5 +140,8 @@ class Gauss_DUQ(nn.Module):
         features_sum = torch.einsum("ijk,ik->jk", DW, Y)
 
         self.m = self.alpha * self.m + (1 - self.alpha) * features_sum
+        
+    def prox(self):
+        return
 
  
