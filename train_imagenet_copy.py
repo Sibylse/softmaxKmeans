@@ -39,6 +39,7 @@ def add_parser_arguments(parser):
     parser.add_argument('--lr_multiplier', default=1, type=float, help='multiplier of default step size setting')
     parser.add_argument('--weight_decay_gamma', default=-1e-5, type=float, help='weight decay of gamma')
     parser.add_argument('--weight_decay_gamma2', default=1e-5, type=float, help='weight decay of gamma2')
+    parser.add_argument('--weight_gp_pred', default=0.75, type=float, help='weight gradient penalty duq')
     parser.add_argument('--gamma_min', default=0.1, type=float, help='minimum value of gamma2')
 
 
@@ -367,6 +368,60 @@ def main():
                         print('Min margin: %.2f, mean margin: %.2f +- %.3f'% (torch.min(margins), torch.mean(margins), torch.std(margins)))
                         print('gamma: %.2f +- %.3f'% (torch.mean(gamma), torch.std(gamma)))
 
+            epoch_offset +=max_epoch
+        if dist.get_rank()==0:
+            print('Saving..')
+            state = {
+                'net': net.module.state_dict(),
+                'acc': acc
+            }
+            if not os.path.isdir('checkpoint'):
+                os.mkdir('checkpoint')
+            torch.save(state, './checkpoint/%s%s%s.t7'%(name,net.module.__class__.__name__,net.module.classifier.__class__.__name__))
+    ############################
+    # Train DUQ
+    ############################
+    if args.classifier=="duq":    
+        N_init = torch.zeros(c) + 13
+        m_init = torch.normal(torch.zeros(d, c), 0.05)
+        classifier.m = classifier.m * classifier.N # adapt changes in initialization for resnet
+        # gamma =7 is roughly the same as setting sigma from the paper to 0.1. In the code, sigma is multiplied with 2
+
+        #############initialize model
+        if args.arch=='resnet18':
+            d=512
+            classifier = Gauss_DUQ(in_features = d, out_features = c, gamma=7, N_init = N_init, m_init=m_init)
+            net = resnet_cifar.ResNet18(classifier)   
+        elif args.arch=='resnet50':
+            d=2048
+            classifier = Gauss_DUQ(in_features = d, out_features = c, gamma=7, N_init = N_init, m_init=m_init)
+            net = resnet_cifar.ResNet50(classifier)
+        else:
+            print("Not defined arch!")
+            assert False
+        net=net.to(device)
+        net=torch.nn.parallel.DistributedDataParallel(net, device_ids=[local_rank])
+
+        ######Training for Gaussian Net####################
+        criterion = BCE_DUQLoss(c, device)
+        criterion=criterion.to(device)
+
+        sgd = optim.SGD([{'params': net.parameters()}],
+                lr=0.1, momentum=0.9, weight_decay=5e-4)
+        optimizer = Optimizer(sgd, trainloader, device, update_centroids = True ,local_rank=local_rank,world_size=world_size)
+
+        epoch_offset = 0   
+        for lr, max_epochs in [(0.05,25),(0.01,25),(0.002,25),(0.0004,25)]:
+            lr = lr * args.lr_multiplier
+            sgd.param_groups[0]['lr'] = lr
+            if dist.get_rank()==0:
+                print("Optimize with step size ",lr)
+            for epoch in range(epoch_offset,epoch_offset+ max_epoch):            
+                trainsampler.set_epoch(epoch)
+                if dist.get_rank()==0:
+                    print('\nEpoch: %d' % epoch)
+                optimizer.train_epoch(net, criterion, weight_gp_pred=args.weight_gp_pred, verbose=False)
+                (acc,conf) = optimizer.test_acc(net,criterion, testloader)
             epoch_offset +=max_epoch
         if dist.get_rank()==0:
             print('Saving..')
