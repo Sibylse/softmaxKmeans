@@ -390,7 +390,7 @@ def main():
             # gamma =7 is roughly the same as setting sigma from the paper to 0.1. In the code, sigma is multiplied with 2
 
             classifier = Gauss_DUQ(in_features = d, out_features = c, gamma=7, N_init = N_init, m_init=m_init)
-            classifier.m = classifier.m * classifier.N # adapt changes in initialization for resnet   
+            #classifier.m = classifier.m * classifier.N # adapt changes in initialization for resnet   
             net = resnet_cifar.ResNet18(classifier)   
         elif args.arch=='resnet50':
             d=2048
@@ -399,7 +399,7 @@ def main():
             # gamma =7 is roughly the same as setting sigma from the paper to 0.1. In the code, sigma is multiplied with 2
 
             classifier = Gauss_DUQ(in_features = d, out_features = c, gamma=7, N_init = N_init, m_init=m_init)
-            classifier.m = classifier.m * classifier.N # adapt changes in initialization for resnet
+            #classifier.m = classifier.m * classifier.N # adapt changes in initialization for resnet
             net = resnet_cifar.ResNet50(classifier)
         else:
             print("Not defined arch!")
