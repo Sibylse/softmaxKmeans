@@ -107,6 +107,7 @@ class Gauss_DUQ(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.gamma=gamma
+        self.gamma2=1.0
         self.alpha=alpha
         if N_init==None:
             N_init = torch.ones(out_features)*10
