@@ -80,9 +80,10 @@ class GALoss(nn.Module):
  
     def forward(self, inputs, targets):        
         Y = self.I[targets]
-        loss= torch.mean(-torch.sum(Y*inputs,1) +torch.log(((1-torch.exp(self.gamma2*inputs))*(1-Y)).sum(1)))
+        loss= - torch.sum(Y*inputs,1)
+        loss= loss + torch.log( torch.clamp( torch.sum(torch.exp(self.gamma2*inputs)*(1-Y), 1), min=1e-4 ) )
        
-        return loss
+        return torch.mean(loss)
     
     def conf(self,inputs):
         return self.classifier.conf(inputs)
