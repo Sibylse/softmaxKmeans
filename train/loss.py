@@ -125,9 +125,9 @@ class BCE_GALoss(nn.Module):
         torch.clamp_(self.gamma2, self.gamma2_min, self.gamma2_max)
         self.classifier.prox()
         
-class CE_GALoss(nn.Module):
+class CE_GALoss2(nn.Module):
     def __init__(self, classifier, c, device, gamma2_min = 0.001, gamma2_max = 0.9):
-        super(CE_GALoss, self).__init__()
+        super(CE_GALoss2, self).__init__()
         self.I = torch.eye(c).to(device)
         self.ce_loss = nn.CrossEntropyLoss()
         self.nll_loss = nn.NLLLoss()
