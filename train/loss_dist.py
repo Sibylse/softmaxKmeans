@@ -16,11 +16,6 @@ class CE_Loss(nn.Module):
         self.Y_pred=inputs
         return self.ce_loss(self.Y_pred, targets)
     
-    def conf(self,inputs):
-        return self.softmax(inputs)
-    
-    def prox(self):
-        return
     
 class CE_GALoss_old(nn.Module):
     def __init__(self, c, device):
@@ -71,20 +66,11 @@ class BCE_GALoss(nn.Module):
             print("min,max output",torch.min(torch.exp(inputs)).item(), torch.max(torch.exp(inputs)).item())
             print("nans output",torch.sum(torch.isnan(torch.exp(inputs))).item())
             print(f"{e},{e.__class_}")
-        return loss
-    
-    #def conf(self,net):
-        #return self.classifier.conf(inputs)
-        #return net.module.classifier.conf(inputs)
-    
-    #def prox(self):
-        #torch.clamp_(self.gamma2, self.gamma2_min, self.gamma2_max)
-        #self.classifier.prox()
-      
+        return loss      
 
 class BCE_DUQLoss(nn.Module):
     
-    def __init__(self, classifier, c, device):
+    def __init__(self, c, device):
         super(BCE_DUQLoss, self).__init__()
         self.bce_loss = nn.BCELoss()
         self.I = torch.eye(c).to(device)
@@ -92,14 +78,8 @@ class BCE_DUQLoss(nn.Module):
         self.Y_pred = 0 #predicted class probabilities
         self.Y= 0
     
-    def forward(self, inputs, targets):
+    def forward(self, inputs, targets, gamma2=None):
         self.Y = self.I[targets]
-        self.Y_pred = torch.exp(self.classifier(inputs))
+        self.Y_pred = torch.exp(inputs)
         loss = self.bce_loss(self.Y_pred, self.Y)
         return loss
-    
-    def conf(self,inputs):
-        return self.classifier.conf(inputs)
-    
-    def prox(self):
-        return
