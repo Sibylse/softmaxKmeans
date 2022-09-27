@@ -7,12 +7,10 @@ class CE_Loss(nn.Module):
     def __init__(self, c, device):
         super(CE_Loss, self).__init__()
         self.ce_loss = nn.CrossEntropyLoss()
-        #self.classifier = classifier.to(device)
         self.softmax = nn.Softmax(dim=1)
         self.Y_pred = 0
  
     def forward(self, inputs, targets,gamma2=None):  
-        #self.Y_pred = self.classifier(inputs) # prediction before softmax
         self.Y_pred=inputs
         return self.ce_loss(self.Y_pred, targets)
     
@@ -48,7 +46,6 @@ class BCE_GALoss(nn.Module):
         self.bce_loss = nn.BCELoss()
         #self.const = np.sqrt(c)
         self.const = (c-1)/2
-        #self.mse_loss = nn.MSELoss(reduction='none')
         #self.classifier = classifier.to(device)
         #self.gamma2 = nn.Parameter(torch.ones(c)*0.9)
         #self.gamma2_min = gamma2_min
@@ -74,7 +71,6 @@ class BCE_DUQLoss(nn.Module):
         super(BCE_DUQLoss, self).__init__()
         self.bce_loss = nn.BCELoss()
         self.I = torch.eye(c).to(device)
-        self.classifier = classifier.to(device)
         self.Y_pred = 0 #predicted class probabilities
         self.Y= 0
     
