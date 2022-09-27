@@ -416,7 +416,7 @@ def main():
         optimizer = Optimizer(sgd, trainloader, device, update_centroids = True ,local_rank=local_rank,world_size=world_size)
 
         epoch_offset = 0   
-        for lr, max_epochs in [(0.05,25),(0.01,25),(0.002,25),(0.0004,25)]:
+        for lr, max_epoch in [(0.05,25),(0.01,25),(0.002,25),(0.0004,25)]:
             lr = lr * args.lr_multiplier
             sgd.param_groups[0]['lr'] = lr
             if dist.get_rank()==0:
