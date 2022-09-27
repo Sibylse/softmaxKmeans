@@ -26,7 +26,7 @@ import random
 def add_parser_arguments(parser):
     parser.add_argument('--datadir', default='/projects/2/managed_datasets/imagenet/',help='path to dataset')
     parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18',choices=['resnet18','resnet50'])
-    parser.add_argument('--classifier', default='gauss',choices=['gauss','linear'])
+    parser.add_argument('--classifier', default='gauss',choices=['gauss','linear','duq'])
     parser.add_argument('--dataset', default='cifar10', type=str,choices=['imagenet','cifar10','cifar100'])
     parser.add_argument('--epochs', default=90, type=int, metavar='N',help='number of total epochs to run')    
     parser.add_argument('-b', '--batch-size', default=128, type=int,metavar='N', help='mini-batch size (default: 256)')                    
