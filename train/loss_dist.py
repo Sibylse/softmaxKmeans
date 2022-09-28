@@ -38,6 +38,12 @@ class CE_GALoss(nn.Module):
         loss = self.ce_loss(1/gamma2*Y*inputs + (1-Y)*inputs,targets) 
         loss+= self.nll_loss(inputs,targets)
         return loss
+    
+    def forward(self, inputs, targets):        
+        Y = self.I[targets]
+        loss = self.ce_loss(Y*inputs + (1-Y)*inputs,targets) 
+        loss+= self.nll_loss(inputs,targets)
+        return loss
 
 class BCE_GALoss(nn.Module):
     def __init__(self, c, device):
