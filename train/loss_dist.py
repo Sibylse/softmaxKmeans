@@ -33,17 +33,20 @@ class CE_GALoss(nn.Module):
         self.ce_loss = nn.CrossEntropyLoss()
         self.nll_loss = nn.NLLLoss()
  
-    def forward(self, inputs, targets, gamma2):        
+    def forward(self, inputs, targets, gamma2=None):        
         Y = self.I[targets]
-        loss = self.ce_loss(1/gamma2*Y*inputs + (1-Y)*inputs,targets) 
+        if gamma2 is not None:
+            loss = self.ce_loss(1/gamma2*Y*inputs + (1-Y)*inputs,targets) 
+        else:
+            loss = self.ce_loss(Y*inputs + (1-Y)*inputs,targets) 
         loss+= self.nll_loss(inputs,targets)
         return loss
     
-    def forward(self, inputs, targets):        
-        Y = self.I[targets]
-        loss = self.ce_loss(Y*inputs + (1-Y)*inputs,targets) 
-        loss+= self.nll_loss(inputs,targets)
-        return loss
+    #def forward(self, inputs, targets):        
+    #    Y = self.I[targets]
+    #    loss = self.ce_loss(Y*inputs + (1-Y)*inputs,targets) 
+    #    loss+= self.nll_loss(inputs,targets)
+    #    return loss
 
 class BCE_GALoss(nn.Module):
     def __init__(self, c, device):
