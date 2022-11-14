@@ -90,25 +90,23 @@ class Bottleneck(nn.Module):
         return out
 
 
-class ResNet(nn.Module):
+class ResNetEmbed(nn.Module):
     def __init__(
         self,
         block,
         num_blocks,
         num_classes=10,
-        temp=1.0,
         spectral_normalization=True,
         mod=True,
         coeff=3,
-        n_power_iterations=1,
-        mnist=False,
+        n_power_iterations=1
     ):
         """
         If the "mod" parameter is set to True, the architecture uses 2 modifications:
         1. LeakyReLU instead of normal ReLU
         2. Average Pooling on the residual connections.
         """
-        super(ResNet, self).__init__()
+        super(ResNetEmbed, self).__init__()
         self.in_planes = 64
 
         self.mod = mod
@@ -136,22 +134,15 @@ class ResNet(nn.Module):
 
         self.bn1 = nn.BatchNorm2d(64)
 
-        if mnist:
-            self.conv1 = wrapped_conv(28, 1, 64, kernel_size=3, stride=1)
-            self.layer1 = self._make_layer(block, 28, 64, num_blocks[0], stride=1)
-            self.layer2 = self._make_layer(block, 28, 128, num_blocks[1], stride=2)
-            self.layer3 = self._make_layer(block, 14, 256, num_blocks[2], stride=2)
-            self.layer4 = self._make_layer(block, 7, 512, num_blocks[3], stride=2)
-        else:
-            self.conv1 = wrapped_conv(32, 3, 64, kernel_size=3, stride=1)
-            self.layer1 = self._make_layer(block, 32, 64, num_blocks[0], stride=1)
-            self.layer2 = self._make_layer(block, 32, 128, num_blocks[1], stride=2)
-            self.layer3 = self._make_layer(block, 16, 256, num_blocks[2], stride=2)
-            self.layer4 = self._make_layer(block, 8, 512, num_blocks[3], stride=2)
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.conv1 = wrapped_conv(32, 3, 64, kernel_size=3, stride=1)
+        self.layer1 = self._make_layer(block, 32, 64, num_blocks[0], stride=1)
+        self.layer2 = self._make_layer(block, 32, 128, num_blocks[1], stride=2)
+        self.layer3 = self._make_layer(block, 16, 256, num_blocks[2], stride=2)
+        self.layer4 = self._make_layer(block, 8, 512, num_blocks[3], stride=2)
+        #self.fc = nn.Linear(512 * block.expansion, num_classes) #classifier
         self.activation = F.leaky_relu if self.mod else F.relu
         self.feature = None
-        self.temp = temp
+        #self.temp = temp
 
     def _make_layer(self, block, input_size, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -171,70 +162,38 @@ class ResNet(nn.Module):
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
         self.feature = out.clone().detach()
-        out = self.fc(out) / self.temp
+        #out = self.fc(out) / self.temp
+        return out
+    
+class ResNet(nn.Module):
+    def __init__(self, embedding, classifier):
+        super(ResNet, self).__init__()
+        self.embed = embedding
+        self.classifier = classifier
+
+    def forward(self, x):
+        out = self.embed(x)
+        out = self.classifier(out)
         return out
 
 
-def resnet18(spectral_normalization=True, mod=True, temp=1.0, mnist=False, **kwargs):
-    model = ResNet(
+def resnet18(classifier, spectral_normalization=True, mod=True, **kwargs):
+    embed = ResNetEmbed(
         BasicBlock,
         [2, 2, 2, 2],
         spectral_normalization=spectral_normalization,
         mod=mod,
-        temp=temp,
-        mnist=mnist,
         **kwargs
     )
-    return model
+    return ResNet(embed,classifier)
 
 
-def resnet50(spectral_normalization=True, mod=True, temp=1.0, mnist=False, **kwargs):
-    model = ResNet(
+def resnet50(classifier,spectral_normalization=True, mod=True, **kwargs):
+    embed = ResNetEmbed(
         Bottleneck,
         [3, 4, 6, 3],
         spectral_normalization=spectral_normalization,
         mod=mod,
-        temp=temp,
-        mnist=mnist,
         **kwargs
     )
-    return model
-
-
-def resnet101(spectral_normalization=True, mod=True, temp=1.0, mnist=False, **kwargs):
-    model = ResNet(
-        Bottleneck,
-        [3, 4, 23, 3],
-        spectral_normalization=spectral_normalization,
-        mod=mod,
-        temp=temp,
-        mnist=mnist,
-        **kwargs
-    )
-    return model
-
-
-def resnet110(spectral_normalization=True, mod=True, temp=1.0, mnist=False, **kwargs):
-    model = ResNet(
-        Bottleneck,
-        [3, 4, 26, 3],
-        spectral_normalization=spectral_normalization,
-        mod=mod,
-        temp=temp,
-        mnist=mnist,
-        **kwargs
-    )
-    return model
-
-
-def resnet152(spectral_normalization=True, mod=True, temp=1.0, mnist=False, **kwargs):
-    model = ResNet(
-        Bottleneck,
-        [3, 8, 36, 3],
-        spectral_normalization=spectral_normalization,
-        mod=mod,
-        temp=temp,
-        mnist=mnist,
-        **kwargs
-    )
-    return model
+    return ResNet(embed,classifier)
