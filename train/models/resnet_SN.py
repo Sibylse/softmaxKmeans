@@ -165,9 +165,9 @@ class ResNetEmbed(nn.Module):
         #out = self.fc(out) / self.temp
         return out
     
-class ResNet(nn.Module):
+class ResNetSN(nn.Module):
     def __init__(self, embedding, classifier):
-        super(ResNet, self).__init__()
+        super(ResNetSN, self).__init__()
         self.embed = embedding
         self.classifier = classifier
 
@@ -185,7 +185,7 @@ def resnet18(classifier, spectral_normalization=True, mod=True, **kwargs):
         mod=mod,
         **kwargs
     )
-    return ResNet(embed,classifier)
+    return ResNetSN(embed,classifier)
 
 
 def resnet50(classifier,spectral_normalization=True, mod=True, **kwargs):
@@ -196,4 +196,4 @@ def resnet50(classifier,spectral_normalization=True, mod=True, **kwargs):
         mod=mod,
         **kwargs
     )
-    return ResNet(embed,classifier)
+    return ResNetSN(embed,classifier)
