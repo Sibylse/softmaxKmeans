@@ -123,12 +123,12 @@ class Gauss_DUQ(nn.Module):
 class GMM(nn.Module):
     __constants__ = ['in_features', 'out_features']
 
-    def __init__(self,in_features,out_features):
+    def __init__(self,in_features,out_features, embeddings, labels):
         super(GMM, self).__init__()
 
         self.in_features = in_features
         self.out_features = out_features
-        self.gda = None # class-wise multivatiate Gaussians, to be initialized with fit()
+        self.register_buffer('gda', self.fit(embeddings, labels)) # class-wise multivatiate Gaussians, to be initialized with fit()
     
     def forward(self, D):
         return self.gda.log_prob(D[:, None, :])
@@ -160,4 +160,4 @@ class GMM(nn.Module):
                     continue
                 break
 
-        self.gda = gmm 
+        return gmm 
