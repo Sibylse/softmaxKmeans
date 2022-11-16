@@ -139,7 +139,7 @@ class GMM(nn.Module):
     def prox(self):
         return
     
-    def fit(self, embeddings): #embeddings should be num_samples x dim_embedding
+    def fit(self, embeddings, layers): #embeddings should be num_samples x dim_embedding
         with torch.no_grad():
             classwise_mean_features = torch.stack([torch.mean(embeddings[labels == c], dim=0) for c in range(self.out_features)])
             classwise_cov_features = torch.stack(
