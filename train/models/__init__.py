@@ -12,6 +12,7 @@ from .shufflenet import *
 from .shufflenetv2 import *
 #from .resnet_mf import *
 from .resnetGauss import *
+from .resnet_SN import *
 from .resnet import *
 from .resnext import *
 from .preact_resnet import *
