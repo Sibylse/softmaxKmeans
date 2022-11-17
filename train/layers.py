@@ -128,10 +128,9 @@ class GMM(nn.Module):
 
         self.in_features = in_features
         self.out_features = out_features
-        self.register_buffer('gda', self.fit(embeddings, labels)) # class-wise multivatiate Gaussians, to be initialized with fit()
         self.register_buffer('classwise_mean_features', torch.zeros(out_features, in_features))
         self.register_buffer('classwise_cov_features', torch.eye(out_features, in_features, in_features))
-        self.gda = self.init_gda()
+        self.gda = self.init_gda()  # class-wise multivatiate Gaussians, to be initialized with fit()
     
     def forward(self, D):
         return self.gda.log_prob(D[:, None, :])
