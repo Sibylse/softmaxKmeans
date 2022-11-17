@@ -9,6 +9,7 @@ import numpy as np
 #import matplotlib.pyplot as plt
 import os
 from train.models import *
+from train.models.resnet_SN import *
 import train.models.resnet_cifar as resnet_cifar
 from train import *
 from train.layers_copy import *
@@ -26,7 +27,7 @@ import random
 def add_parser_arguments(parser):
     parser.add_argument('--datadir', default='/projects/2/managed_datasets/imagenet/',help='path to dataset')
     parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18',choices=['resnet18','resnet50'])
-    parser.add_argument('--classifier', default='gauss',choices=['gauss','linear','duq'])
+    parser.add_argument('--classifier', default='gauss',choices=['gauss','linear'])
     parser.add_argument('--dataset', default='cifar10', type=str,choices=['imagenet','cifar10','cifar100'])
     parser.add_argument('--epochs', default=90, type=int, metavar='N',help='number of total epochs to run')    
     parser.add_argument('-b', '--batch-size', default=128, type=int,metavar='N', help='mini-batch size (default: 256)')                    
@@ -35,18 +36,17 @@ def add_parser_arguments(parser):
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',help='momentum')
     parser.add_argument('--gamma', default=0.5, type=float, metavar='M',help='momentum')
     parser.add_argument('--seed', default=17, type=int,help='seed')
-    parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,metavar='W', help='weight decay (default: 1e-4)')
+    parser.add_argument('--weight_decay', '--wd', default=1e-4, type=float,metavar='W', help='weight decay (default: 1e-4)')
     parser.add_argument('--lr_multiplier', default=1, type=float, help='multiplier of default step size setting')
     parser.add_argument('--weight_decay_gamma', default=-1e-5, type=float, help='weight decay of gamma')
     parser.add_argument('--weight_decay_gamma2', default=1e-5, type=float, help='weight decay of gamma2')
-    parser.add_argument('--weight_gp_pred', default=0.75, type=float, help='weight gradient penalty duq')
     parser.add_argument('--gamma_min', default=0.1, type=float, help='minimum value of gamma2')
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 add_parser_arguments(parser)
 args = parser.parse_args()
-
+print(args)
 
 
 
@@ -250,24 +250,31 @@ def main():
         if args.arch=='resnet18':
             d=512
             classifier=Linear(d, c, bias=True)
-            net = resnet_cifar.ResNet18(classifier).to(device)   
+            net = ResNet18(classifier).to(device)   
         elif args.arch=='resnet50':
             d=2048
             classifier=Linear(d, c, bias=True)
-            net = resnet_cifar.ResNet50(classifier).to(device)
+            net = ResNet50(classifier).to(device)
         #### Linear net with CE LOSS################
         print("Train Softmax DNN")
         net=torch.nn.parallel.DistributedDataParallel(net, device_ids=[local_rank])
         criterion = CE_Loss(c, device)
         criterion=criterion.to(device)
-
-        sgd = optim.SGD([{'params': net.parameters()},],lr=0.1, momentum=0.9, weight_decay=5e-4)
+        print(" ! Weight decay NOT applied to BN parameters ")
+        bn_params = [v for n, v in net.named_parameters() if 'bn' in n]
+        rest_params = [v for n, v in net.named_parameters() if not 'bn' in n]
+        print(len(bn_params))
+        print(len(rest_params))
+        sgd = torch.optim.SGD([{'params': bn_params, 'weight_decay': 0},{'params': rest_params, 'weight_decay': args.weight_decay}],0.1,momentum=0.9,weight_decay=args.weight_decay,)
+        #sgd = optim.SGD([{'params': net.parameters()},],lr=0.1, momentum=0.9, weight_decay=args.weight_decay)
         optimizer = Optimizer(sgd, trainloader, device,local_rank=local_rank,world_size=world_size)
         
         max_total_epochs = (args.classifier=="linear")*200 + (args.classifier=="gauss")*args.warmup_epochs
         best_acc, epoch_offset =0, 0
         for (lr,max_epochs) in [(0.1,60),(0.01,20),(0.001,20)]:
-            optimizer.optimizer.param_groups[0]['lr'] = lr
+            print('linear classfiiction:lr',lr)
+            for p in optimizer.optimizer.param_groups: 
+                p['lr'] = lr
             #print("GPU id",local_rank,"===== Optimize with step size ",lr)
             for epoch in range(epoch_offset, min(epoch_offset+max_epochs, max_total_epochs)):
                 if dist.get_rank()==0:
@@ -327,25 +334,34 @@ def main():
         #criterion = BCE_GALoss( c, device)
         criterion = CE_GALoss( c, device)
         criterion=criterion.to(device)
+        
+        bn_params = [v for n, v in net.module.embed.named_parameters() if 'bn' in n]
+        rest_params = [v for n, v in net.module.embed.named_parameters() if not 'bn' in n]
+        print(len(bn_params))
+        print(len(rest_params))
 
         sgd = optim.SGD([
-                        {'params': net.module.embed.parameters()},
+                        {'params': bn_params, 'weight_decay': 0},
+                        {'params': rest_params, 'weight_decay': args.weight_decay},
                         {'params': net.module.classifier.weight, 'weight_decay': 0},
                         {'params': net.module.classifier.gamma, 'weight_decay': args.weight_decay_gamma},
                         {'params': net.module.classifier.gamma2, 'weight_decay': args.weight_decay_gamma2}],
-                        lr=0.1, momentum=0.9, weight_decay=5e-4)
+                        lr=0.1, momentum=0.9, weight_decay=args.weight_decay)
         optimizer = Optimizer(sgd, trainloader, device,local_rank=local_rank,world_size=world_size)
         ############test#########################
         (acc,conf) = optimizer.test_acc(net,criterion, testloader)
 
-        epoch_offset = 0   
+        epoch_offset = args.warmup_epochs   
         #for lr, max_epoch in [(0.05, 40),(0.01,30),(0.002,20),(0.0004,10)]:
         for lr, max_epoch in [(0.1, 60),(0.01,20),(0.001,20)]:
             lr = lr * args.lr_multiplier
-            optimizer.optimizer.param_groups[0]['lr'] = lr
-            optimizer.optimizer.param_groups[1]['lr'] = lr
-            optimizer.optimizer.param_groups[2]['lr'] = lr
-            optimizer.optimizer.param_groups[3]['lr'] = lr
+            print("lr",lr)
+            # optimizer.optimizer.param_groups[0]['lr'] = lr
+            # optimizer.optimizer.param_groups[1]['lr'] = lr
+            # optimizer.optimizer.param_groups[2]['lr'] = lr
+            # optimizer.optimizer.param_groups[3]['lr'] = lr
+            for p in optimizer.optimizer.param_groups: 
+                p['lr'] = lr
             if dist.get_rank()==0:
                 print("Optimize with step size ",lr)
             for epoch in range(max(epoch_offset, args.warmup_epochs),epoch_offset+ max_epoch):            
@@ -368,65 +384,6 @@ def main():
                         print('Min margin: %.2f, mean margin: %.2f +- %.3f'% (torch.min(margins), torch.mean(margins), torch.std(margins)))
                         print('gamma: %.2f +- %.3f'% (torch.mean(gamma), torch.std(gamma)))
 
-            epoch_offset +=max_epoch
-        if dist.get_rank()==0:
-            print('Saving..')
-            state = {
-                'net': net.module.state_dict(),
-                'acc': acc
-            }
-            if not os.path.isdir('checkpoint'):
-                os.mkdir('checkpoint')
-            torch.save(state, './checkpoint/%s%s%s.t7'%(name,net.module.__class__.__name__,net.module.classifier.__class__.__name__))
-    ############################
-    # Train DUQ
-    ############################
-    if args.classifier=="duq":    
-        #############initialize model
-        if args.arch=='resnet18':
-            d=512
-            N_init = torch.zeros(c) + 13
-            m_init = torch.normal(torch.zeros(d, c), 0.05)
-            # gamma =50 is roughly the same as setting sigma from the paper to 0.1. In the code, sigma is multiplied with 2
-
-            classifier = Gauss_DUQ(in_features = d, out_features = c, gamma=50, N_init = N_init, m_init=m_init)
-            #classifier.m = classifier.m * classifier.N # adapt changes in initialization for resnet   
-            net = resnet_cifar.ResNet18(classifier)   
-        elif args.arch=='resnet50':
-            d=2048
-            N_init = torch.zeros(c) + 13
-            m_init = torch.normal(torch.zeros(d, c), 0.05)
-            # gamma =7 is roughly the same as setting sigma from the paper to 0.1. In the code, sigma is multiplied with 2
-
-            classifier = Gauss_DUQ(in_features = d, out_features = c, gamma=7, N_init = N_init, m_init=m_init)
-            #classifier.m = classifier.m * classifier.N # adapt changes in initialization for resnet
-            net = resnet_cifar.ResNet50(classifier)
-        else:
-            print("Not defined arch!")
-            assert False
-        net=net.to(device)
-        net=torch.nn.parallel.DistributedDataParallel(net, device_ids=[local_rank])
-
-        ######Training for Gaussian Net####################
-        criterion = BCE_DUQLoss(c, device)
-        criterion=criterion.to(device)
-
-        sgd = optim.SGD([{'params': net.parameters()}],
-                lr=0.1, momentum=0.9, weight_decay=5e-4)
-        optimizer = Optimizer(sgd, trainloader, device, update_centroids = True ,local_rank=local_rank,world_size=world_size)
-
-        epoch_offset = 0   
-        for lr, max_epoch in [(0.05,25),(0.01,25),(0.002,25),(0.0004,25)]:
-            lr = lr * args.lr_multiplier
-            sgd.param_groups[0]['lr'] = lr
-            if dist.get_rank()==0:
-                print("Optimize with step size ",lr)
-            for epoch in range(epoch_offset,epoch_offset+ max_epoch):            
-                trainsampler.set_epoch(epoch)
-                if dist.get_rank()==0:
-                    print('\nEpoch: %d' % epoch)
-                optimizer.train_epoch(net, criterion, weight_gp_pred=args.weight_gp_pred, verbose=False)
-                (acc,conf) = optimizer.test_acc(net,criterion, testloader)
             epoch_offset +=max_epoch
         if dist.get_rank()==0:
             print('Saving..')
