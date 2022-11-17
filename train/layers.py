@@ -123,12 +123,15 @@ class Gauss_DUQ(nn.Module):
 class GMM(nn.Module):
     __constants__ = ['in_features', 'out_features']
 
-    def __init__(self,in_features,out_features, embeddings, labels):
+    def __init__(self,in_features,out_features):
         super(GMM, self).__init__()
 
         self.in_features = in_features
         self.out_features = out_features
         self.register_buffer('gda', self.fit(embeddings, labels)) # class-wise multivatiate Gaussians, to be initialized with fit()
+        self.register_buffer('classwise_mean_features', torch.zeros(out_features, in_features))
+        self.register_buffer('classwise_cov_features', torch.eye(out_features, in_features, in_features))
+        self.gda = self.init_gda()
     
     def forward(self, D):
         return self.gda.log_prob(D[:, None, :])
@@ -159,5 +162,10 @@ class GMM(nn.Module):
                 except ValueError as e:
                     continue
                 break
-
-        return gmm 
+            self.classwise_mean_features = classwise_mean_features
+            self.classwise_cov_features = classwise_cov_features + jitter
+        self.gda = gmm 
+    
+    def init_gda(self):
+        self.gda = torch.distributions.MultivariateNormal(loc=self.classwise_mean_features, covariance_matrix=(self.classwise_cov_features))
+        
