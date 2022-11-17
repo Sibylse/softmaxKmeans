@@ -139,10 +139,10 @@ class ResNetEmbed(nn.Module):
         self.layer2 = self._make_layer(block, 32, 128, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 16, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 8, 512, num_blocks[3], stride=2)
-        #self.fc = nn.Linear(512 * block.expansion, num_classes) #classifier
+        
         self.activation = F.leaky_relu if self.mod else F.relu
         self.feature = None
-        #self.temp = temp
+        
 
     def _make_layer(self, block, input_size, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -164,7 +164,6 @@ class ResNetEmbed(nn.Module):
         self.feature = out.clone().detach()
         #out = self.fc(out) / self.temp
         return out
-    
 class ResNetSN(nn.Module):
     def __init__(self, embedding, classifier):
         super(ResNetSN, self).__init__()
@@ -174,7 +173,7 @@ class ResNetSN(nn.Module):
     def forward(self, x):
         out = self.embed(x)
         out = self.classifier(out)
-        return out
+        return out,self.embed.feature
 
 
 def resnet18(classifier, spectral_normalization=True, mod=True, **kwargs):
