@@ -129,7 +129,7 @@ class GMM(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.register_buffer('classwise_mean_features', torch.zeros(out_features, in_features))
-        self.register_buffer('classwise_cov_features', torch.eye(out_features, in_features, in_features) torch.eye(in_features).unsqueeze(0).repeat(out_features, 1, 1))
+        self.register_buffer('classwise_cov_features', torch.eye(in_features).unsqueeze(0).repeat(out_features, 1, 1))
         self.gda = self.init_gda()  # class-wise multivatiate Gaussians, to be initialized with fit()
     
     def forward(self, D):
