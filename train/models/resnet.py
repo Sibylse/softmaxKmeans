@@ -97,7 +97,7 @@ class ResNetEmbed(nn.Module):
         out = torch.flatten(out, 1)
         return out
     
-class ResNet_old(nn.Module):
+class ResNet_own(nn.Module):
     def __init__(self, block, num_blocks, classifier):
         super(ResNet, self).__init__()
         self.embed = ResNetEmbed(block, num_blocks)
@@ -134,7 +134,7 @@ def ResNet18(classifier):
     #return ResNet(BasicBlock, [2,2,2,2],classifier)
 
 def ResNet18_own(classifier):
-    return ResNet(BasicBlock, [2,2,2,2],classifier)
+    return ResNet_own(BasicBlock, [2,2,2,2],classifier)
 
 def ResNet34(classifier):
     return ResNet(BasicBlock, [3,4,6,3],classifier)
