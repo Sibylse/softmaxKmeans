@@ -99,7 +99,7 @@ class ResNetEmbed(nn.Module):
     
 class ResNet_own(nn.Module):
     def __init__(self, block, num_blocks, classifier):
-        super(ResNet, self).__init__()
+        super(ResNet_own, self).__init__()
         self.embed = ResNetEmbed(block, num_blocks)
         #self.classifier = nn.Linear(512*block.expansion, num_classes, bias=False)
         self.classifier = classifier
