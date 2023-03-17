@@ -18,19 +18,22 @@ class LeNetEmbed(nn.Module):
         out = F.max_pool2d(out, 2)
         out = out.view(out.size(0), -1)
         out = F.relu(self.fc1(out))
-        out = F.relu(self.fc2(out))
+        #out = F.relu(self.fc2(out))
+        out = self.fc2(out)
         return out
     
     
 class LeNet(nn.Module):
-    def __init__(self,embedding_dim, classifier):
+    def __init__(self,embedding_dim, classifier, activation =F.relu):
         super(LeNet, self).__init__()
         self.embed = LeNetEmbed(embedding_dim=embedding_dim)
         #self.classifier   = nn.Linear(embedding_dim, num_classes,bias=False)
+        self.activation = activation
         self.classifier = classifier
 
     def forward(self, x):
         out = self.embed(x)
+        out = self.activation(out)
         out = self.classifier(out)
         return out
     
