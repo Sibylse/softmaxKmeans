@@ -120,7 +120,7 @@ class ResNet(nn.Module):
         out = self.classifier(out)
         return out
 
-def ResNet18(classifier):
+def ResNet18(classifier, final_layer=nn.Identity()):
     embed = resnet18()
 
     # Adapted resnet from:
@@ -129,7 +129,7 @@ def ResNet18(classifier):
         3, 64, kernel_size=3, stride=1, padding=1, bias=False
     )
     embed.maxpool = nn.Identity()
-    embed.fc = nn.Identity()
+    embed.fc = final_layer
     return ResNet(embed,classifier)
     #return ResNet(BasicBlock, [2,2,2,2],classifier)
 
